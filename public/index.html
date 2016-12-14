@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>Nametbd</title>
+<!--   <link rel="icon" type="image/png" href="/favicon.ico"> -->
+  <script src="//cdn.jsdelivr.net/phaser/2.2.2/phaser.min.js"></script>
+  <script type="text/javascript" src="/socketcluster.js"></script>
+  <script src="../../EZGUI/js/EZGUI.js"></script>
+  <script src="./app-gui.js"></script>
+
+  <style type="text/css">
+    body {
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+
+<script type="text/javascript">
+
+  var socket = socketCluster.connect();
+
+  window.onload = function() {
+
+  // GUI
+  var menuScreen;
+  var gameScreen;
+
+  function setupGUI() {
+    EZGUI.components.playBtn.on('click', function() {
+      gameScreen.visible = true;
+      menuScreen.visible = false;
+    });
+
+    EZGUI.components.quitBtn.on('click', function() {
+      gameScreen.visible = false;
+      menuScreen.visible = true;
+    })
+  }
+
+  EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], function() {
+    menuScreen = EZGUI.create(menuScreenJSON, 'metalworks');
+
+    gameScreen = EZGUI.create(gameScreenJSON, 'metalworks');
+    gameScreen.visible = false;
+
+    setupGUI();
+  });
+
+  // Setup the main game
+  var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+  var player;
+  var moveSpeed = 10;
+
+  function getRandomColor(min) {
+    var max = 255;
+    var vari = max - min;
+    return min + Math.round(Math.random() * vari);
+  }
+
+  function preload() {
+    game.load.spritesheet('player', 'assets/dude.png', 32, 48);
+    game.load.tilemap('map', 'assets/map.csv');
+    game.load.image('tileset','assets/tileset.png');
+  }
+
+  var map;
+  var layer0;
+  var cursors;
+
+  // Multiplayer code
+  var players = {};
+
+  function movePlayer(playerName, x, y){
+    var plr = players[playerName];
+    plr.x = plr.sprite.x = x;
+    plr.y = plr.sprite.y = y;
+  }
+
+  function removePlayerSprite(playerData){
+    var plr = players[playerData.name];
+    if (plr){
+      plr.sprite.destroy();
+    }
+  }
+
+  function updatePlayerSprite(playerData){
+    var plr = players[playerData.name];
+    if (plr){
+      movePlayer(playerData.name, playerData.x, playerData.y);
+    } else {
+      players[playerData.name] = plr = {};
+      plr.name = playerData.name;
+
+      // generate avatar
+      var gfx = new Phaser.Graphics(game);
+      gfx.beginFill(playerData.color);
+      gfx.drawCircle(0,0,40);
+      gfx.endFill();
+      var texture = gfx.generateTexture();
+
+      plr.color = playerData.color;
+      plr.sprite = game.add.sprite(0, 0, texture);
+      plr.sprite.anchor.setTo(0.5);
+
+      plr.width = plr.sprite.width;
+      plr.height = plr.sprite.height;
+
+      movePlayer(playerData.name, playerData.x, playerData.y);
+    }
+
+    return plr;
+  }
+
+  function create() {
+    game.physics.startSystem(Phaser.Physics.ARCADE);
+
+    map = game.add.tilemap('map', 32, 32);
+    map.addTilesetImage('tileset');
+
+    layer0 = map.createLayer(0);
+    layer0.resizeWorld();
+
+    var playerName = `p${Math.round(Math.random()*500)}` // TODO pull twitter display name
+    var playerColor = Phaser.Color.getColor(getRandomColor(100), getRandomColor(100), getRandomColor(100));
+
+    player = updatePlayerSprite({
+      name: playerName,
+      color: playerColor,
+      x: Math.random()*game.world.height/2,
+      y: Math.random()*game.world.width/2
+    });
+
+    var getPlayerPresenceChannelName = function(playername) {
+      return 'player/' + playername + '/presence-notification';
+    }
+
+    // Setup player presence notification channel
+    socket.subscribe(getPlayerPresenceChannelName(playerName)).watch(function(playerData){
+      updatePlayerSprite(playerData);
+    });
+
+    socket.subscribe('player-join').watch(function (playerData){
+      if (player && playerData.name != player.name){
+        updatePlayerSprite(playerData);
+        // Tell the new player about our presence by publishing to presence-notification channel
+        socket.publish(getPlayerPresenceChannelName(playerData.name), {
+          name: player.name,
+          color: player.color,
+          x: player.x,
+          y: player.y
+        });
+      }
+    });
+
+    socket.subscribe('player-leave').watch(function(playerData){
+      if (player && playerData.name != player.name){
+        updatePlayerSprite(playerData);
+      }
+    });
+
+    socket.subscribe('player-positions').watch(function (playerDataList) {
+      if (player) {
+        playerDataList.forEach(function (playerData){
+          if (playerData.name != player.name) {
+            updatePlayerSprite(playerData);
+          }
+        });
+      }
+    });
+
+    socket.emit('join', {
+      name: player.name,
+      color: player.color,
+      x: player.x,
+      y: player.y
+    });
+
+    // main movement loop: check every 10ms for player position differences
+    var playerOldPos = {
+      x: Infinity,
+      y: Infinity
+    };
+    function sendPlayerMove() {
+      var playerPositionData = {
+        x: player.x,
+        y: player.y
+      };
+      socket.emit('move', playerPositionData);
+    }
+    setInterval(function(){
+      if (Math.abs(playerOldPos.x - player.x) > 0 || Math.abs(playerOldPos.y - player.y) > 0) {
+        sendPlayerMove();
+      }
+      playerOldPos.x = player.x;
+      playerOldPos.y = player.y;
+    }, 10);
+
+    // setup keyboard controls
+    cursors = game.input.keyboard.createCursorKeys();
+  }
+
+
+  function update() {
+    var newX = player.x;
+    var newY = player.y;
+
+    if (cursors.up.isDown){
+      newY -= moveSpeed;
+    }
+    if (cursors.down.isDown){
+      newY += moveSpeed;
+    }
+    if (cursors.left.isDown){
+      newX -= moveSpeed;
+    }
+    if (cursors.right.isDown){
+      newX += moveSpeed;
+    }
+    movePlayer(player.name, newX, newY);
+  }
+};
+
+</script>
+</body>
+</html>
