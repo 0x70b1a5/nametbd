@@ -3,13 +3,13 @@ var menuScreenJSON = {
   component: 'Window',
   padding: 0,
   position: { x: 0, y: 0 },
-  width: 1000,
-  height: 600,
+  width: 1024,
+  height: 512,
 
   layout: [1,2],
   children: [
     {
-      text: 'MASQUE',
+      text: 'NAMETBD',
       font: {
         size: '20px',
         family: 'Arial Black',
@@ -19,7 +19,7 @@ var menuScreenJSON = {
 
       position: 'center',
 
-      width: 1000,
+      width: 1024,
       height: 300
     },
     {
@@ -46,7 +46,7 @@ var gameScreenJSON = {
   component: 'Window',
   padding: 0,
   position: { x: 0, y: 0 },
-  width: 1000,
+  width: 1024,
   height: 50,
 
   layout: [8,1],
