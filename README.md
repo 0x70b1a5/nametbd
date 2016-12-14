@@ -1,0 +1,1 @@
+`node server` in the root folder. `localhost:8000` in browser.
