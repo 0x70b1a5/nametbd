@@ -3,7 +3,7 @@ var menuScreenJSON = {
   component: 'Window',
   padding: 0,
   position: { x: 0, y: 0 },
-  width: 800,
+  width: 1000,
   height: 600,
 
   layout: [1,2],
@@ -19,7 +19,7 @@ var menuScreenJSON = {
 
       position: 'center',
 
-      width: 600,
+      width: 1000,
       height: 300
     },
     {
@@ -46,12 +46,12 @@ var gameScreenJSON = {
   component: 'Window',
   padding: 0,
   position: { x: 0, y: 0 },
-  width: 800,
-  height: 25,
+  width: 1000,
+  height: 50,
 
-  layout: [1,8],
+  layout: [8,1],
   children: [
-    { id: 'quitBtn', text: 'QUIT', component: 'Button', position: 'center', width: 75, height: 25 },
+    { id: 'quitBtn', text: 'QUIT', component: 'Button', position: 'center', width: 75, height: 50 },
     null,
     null,
     null,
