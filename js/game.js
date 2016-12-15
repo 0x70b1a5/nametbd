@@ -2,7 +2,7 @@
 var eurecaServer;
 var avatar;
 var player;
-var moveSpeed = 20;
+var moveSpeed = 2;
 var cursors;
 var map;
 var layer0;
@@ -69,7 +69,9 @@ Player = function(index, game, avatar){
   var y = 0;
 
   this.game = game;
-  this.avatar = game.add.sprite(32, 48, 'avatar');
+  this.avatar = game.add.sprite(32, 32, 'avatar');
+  game.add.existing(this.avatar); // you have to do this
+  this.avatar.animations.add('walk');
   this.avatar.id = index;
   game.physics.enable(this.avatar, Phaser.Physics.ARCADE);
   this.avatar.immovable = false;
@@ -95,6 +97,15 @@ Player.prototype.update = function(){
 
       eurecaServer.handleKeys(this.input);
     }
+  }
+
+  if (this.cursor.left == false &&
+    this.cursor.right == false &&
+    this.cursor.up == false &&
+    this.cursor.down == false){
+    this.avatar.animations.stop();
+  } else {
+    this.avatar.animations.play('walk', 50, true);
   }
 
   // actual player movement calculation
@@ -152,7 +163,7 @@ EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], fun
 var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, create: eurecaClientSetup, update: update, render: render });
 
 function preload() {
-  game.load.spritesheet('avatar', 'assets/player.png', 32, 48, 3)
+  game.load.spritesheet('avatar', 'assets/player.png', 32, 32);
   game.load.tilemap('map', 'assets/map.csv');
   game.load.image('tileset','assets/tileset.png');
 }
