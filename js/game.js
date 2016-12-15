@@ -22,7 +22,6 @@ var eurecaClientSetup = function() {
     myId = id;
     create();
     eurecaServer.handshake();
-    ready = true;
   }
 
   eurecaClient.exports.kill = function(id){
@@ -139,11 +138,13 @@ function setupGUI() {
   EZGUI.components.playBtn.on('click', function() {
     gameScreen.visible = true;
     menuScreen.visible = false;
+    ready = true;
   });
 
   EZGUI.components.quitBtn.on('click', function() {
     gameScreen.visible = false;
     menuScreen.visible = true;
+    ready = false;
   })
 }
 
