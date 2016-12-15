@@ -1,31 +1,38 @@
 
-var ready = false;
-var euServer;
+var eurecaServer;
 var avatar;
+var player;
+var moveSpeed = 20;
+var cursors;
+var map;
+var layer0;
+var ready = false;
+var players = {};
 
-var euClientSetup = function() {
-  var euClient = new Eureca.Client();
 
-  euClient.ready(function (proxy) {
-    euServer = proxy;
+var eurecaClientSetup = function() {
+  var eurecaClient = new Eureca.Client();
+
+  eurecaClient.ready(function (proxy) {
+    eurecaServer = proxy;
   });
 
   // "exports" methods are server-side
-  euClient.exports.setId = function(id){
+  eurecaClient.exports.setId = function(id){
     myId = id;
     create();
-    euServer.handshake();
+    eurecaServer.handshake();
     ready = true;
   }
 
-  euClient.exports.kill = function(id){
+  eurecaClient.exports.kill = function(id){
     if (players[id]){
       players[id].kill();
       console.log(`killing ${id}`);
     }
   }
 
-  euClient.exports.spawnPlayer = function(h, e, x){
+  eurecaClient.exports.spawnPlayer = function(h, e, x){
     if (h == myId) return; // only spawn other players
 
     console.log('PLAYER SPAWN');
@@ -33,7 +40,7 @@ var euClientSetup = function() {
     players[h] = plr;
   }
 
-  euClient.exports.updateState = function(id, state){
+  eurecaClient.exports.updateState = function(id, state){
     if (players[id]){
       players[id].cursor = state;
       players[id].avatar.x = state.x;
@@ -63,7 +70,7 @@ Player = function(index, game, avatar){
 
   this.game = game;
   this.avatar = game.add.sprite(32, 48, 'avatar');
-  this.id = index;
+  this.avatar.id = index;
   game.physics.enable(this.avatar, Phaser.Physics.ARCADE);
   this.avatar.immovable = false;
   this.avatar.collideWorldBounds = true;
@@ -86,7 +93,7 @@ Player.prototype.update = function(){
       this.input.x = this.avatar.x;
       this.input.y = this.avatar.y;
 
-      euServer.handleKeys(this.input);
+      eurecaServer.handleKeys(this.input);
     }
   }
 
@@ -140,22 +147,15 @@ EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], fun
 
 //
 // Setup the main game
-// note: create() subbed with euClientSetup(), where we call create()
+// note: create() subbed with eurecaClientSetup(), where we call create()
 //
-var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, create: euClientSetup, update: update });
-var player;
-var moveSpeed = 20;
+var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, create: eurecaClientSetup, update: update, render: render });
 
 function preload() {
-  game.load.spritesheet('avatar', 'assets/avatar.png', 32, 48, 3)
+  game.load.spritesheet('avatar', 'assets/player.png', 32, 48, 3)
   game.load.tilemap('map', 'assets/map.csv');
   game.load.image('tileset','assets/tileset.png');
 }
-
-var map;
-var layer0;
-var cursors;
-var players = {};
 
 function create() {
   game.physics.startSystem(Phaser.Physics.ARCADE);
@@ -185,4 +185,9 @@ function update() {
   player.input.up = cursors.up.isDown;
   player.input.down = cursors.down.isDown;
 
+  for (var i in players) {
+    players[i].update();
+  }
 };
+
+function render() {}
