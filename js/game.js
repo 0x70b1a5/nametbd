@@ -150,11 +150,12 @@ Player.prototype.update = function(){
   // update display name position
   this.label.alignTo(this.avatar, 0.5, 0, 0, -10);
 
-  // end Player.update
+  // end Player.update()
 }
 
 Player.prototype.kill = function() {
   this.avatar.kill();
+  this.label.destroy();
 }
 
 //
@@ -162,6 +163,7 @@ Player.prototype.kill = function() {
 //
 var menuScreen;
 var gameScreen;
+var settingsScreen;
 
 function setupGUI() {
   EZGUI.components.playBtn.on('click', function() {
@@ -174,14 +176,32 @@ function setupGUI() {
     gameScreen.visible = false;
     menuScreen.visible = true;
     ready = false;
+  });
+
+  EZGUI.components.settingsBtn.on('click', function() {
+    gameScreen.visible = false;
+    settingsScreen.visible = true;
+  });
+
+  EZGUI.components.closeSettingsBtn.on('click', function() {
+    settingsScreen.visible = false;
+    gameScreen.visible = true;
+  });
+
+  EZGUI.components.nickBtn.on('click', function(){
+    player.setNick(EZGUI.components.nickField.text);
   })
 }
 
 EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], function() {
   menuScreen = EZGUI.create(menuScreenJSON, 'metalworks');
+  menuScreen.visible = true;
 
   gameScreen = EZGUI.create(gameScreenJSON, 'metalworks');
   gameScreen.visible = false;
+
+  settingsScreen = EZGUI.create(settingsScreenJSON, 'metalworks');
+  settingsScreen.visible = false;
 
   setupGUI();
 });
