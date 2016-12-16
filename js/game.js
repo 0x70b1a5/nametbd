@@ -10,7 +10,7 @@ var ready = false;
 var players = {};
 
 var defaultFont = {
-  font: '16px Courier',
+  font: '16px Arial',
   fill: '#fff',
   align: 'center'
 }
@@ -46,16 +46,23 @@ var eurecaClientSetup = function() {
   }
 
   eurecaClient.exports.updateState = function(id, state){
-    if (players[id]){
-      players[id].cursor = state.input;
-      players[id].avatar.x = state.x;
-      players[id].avatar.y = state.y;
-      if(players[id].nick != state.nick) players[id].setNick(state.nick);
-      players[id].update();
+    if (!players[id]) return;
+
+    players[id].cursor = state.input;
+    players[id].avatar.x = state.x;
+    players[id].avatar.y = state.y;
+    if (players[id].nick != state.nick) players[id].setNick(state.nick);
+    if (players[id].state.chatlog != state.chatlog){
+      players[id].state.chatlog = state.chatlog;
     }
+
+    players[id].update();
   }
 }
 
+//
+// Player class, methods
+//
 Player = function(index, game, avatar, nick){
   this.cursor = {
     left: false,
@@ -71,7 +78,8 @@ Player = function(index, game, avatar, nick){
       up: false,
       down: false
     },
-    nick: nick
+    nick: nick,
+    chatlog: {}
   }
 
   var x = 0;
@@ -100,7 +108,21 @@ Player = function(index, game, avatar, nick){
     this.y = Math.floor(sprite.y + (pct_y*sprite.height) + pad_y);
   }
   this.setNick = function(text) {
-    this.nick = this.state.nick = this.label.text = text;
+    this.nick = this.state.nick = this.label.text = text.slice(0,20);
+  }
+
+  // chat
+  this.timeSinceLastChat = Infinity;
+  this.successiveChats = 0;
+  this.banned = false;
+  this.messages = {};
+  this.sendMessage = function(text, audience){
+    var msg = new Message(text, this, audience);
+    if (!isNaN(msg)) {
+      return `Chat error: ${msg}`; // TODO put errors in chatlog
+    }
+
+    chatlog[msg.time] = msg;
   }
 
   // end Player
@@ -147,8 +169,11 @@ Player.prototype.update = function(){
     this.avatar.x += this.moveSpeed;
   }
 
-  // update display name position
+  // display name position
   this.label.alignTo(this.avatar, 0.5, 0, 0, -10);
+
+  // chat calculations
+  this.timeSinceLastChat += Date.now() - this.timeSinceLastChat;
 
   // end Player.update()
 }
@@ -180,6 +205,7 @@ function setupGUI() {
 
   EZGUI.components.settingsBtn.on('click', function() {
     gameScreen.visible = false;
+    EZGUI.components.nickField.text = player.nick; // prefill
     settingsScreen.visible = true;
   });
 
@@ -190,7 +216,21 @@ function setupGUI() {
 
   EZGUI.components.nickBtn.on('click', function(){
     player.setNick(EZGUI.components.nickField.text);
-  })
+  });
+
+  EZGUI.components.chatBox.on('keypress', function(event){
+    var chatBox = EZGUI.components.chatBox;
+    if (event.keyCode != 13) return; // keycode 13 == enter
+    if (event.keyCode == 27) { // keycode 27 == esc
+      chatBox.focused = false;
+      return;
+    }
+
+    if (!chatBox.focused) chatBox.focus();
+    else {
+      player.sendMessage(chatBox.text, players);
+    }
+  });
 }
 
 EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], function() {
@@ -203,8 +243,27 @@ EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], fun
   settingsScreen = EZGUI.create(settingsScreenJSON, 'metalworks');
   settingsScreen.visible = false;
 
+  chatBox = EZGUI.create(chatBoxJSON, 'metalworks');
+  chatBox.visible = true;
+
   setupGUI();
 });
+
+//
+// Chat system
+//
+Message = function(player, text, audience){
+  if (!player) return 1;
+  if (player.banned) return 2;
+  if (player.timeSinceLastChat < 10000 && player.successiveChats > 3) return 3;
+
+  this.text = text.slice(0,500); // TODO: decide on (or remove) magic number
+  this.time = Date.now();
+  this.audience = audience;
+
+  player.timeSinceLastChat = 0;
+  player.successiveChats++;
+}
 
 //
 // Setup the main game
