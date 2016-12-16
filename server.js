@@ -62,27 +62,28 @@ eurecaServer.exports.handshake = function()
 		for (var cc in clients)
 		{
 			//send latest known position
-			var x = clients[cc].laststate ? clients[cc].laststate.x:  0;
-			var y = clients[cc].laststate ? clients[cc].laststate.y:  0;
+			var x = clients[cc].laststate ? clients[cc].laststate.x : 0;
+			var y = clients[cc].laststate ? clients[cc].laststate.y : 0;
+      var nick = clients[cc].laststate ? clients[cc].laststate.nick : "Player";
 
-			remote.spawnPlayer(clients[cc].id, x, y);
+			remote.spawnPlayer(clients[cc].id, x, y, nick);
 		}
 	}
 }
 
 
 //be exposed to client side
-eurecaServer.exports.handleKeys = function (keys) {
+eurecaServer.exports.handleState = function (state) {
 	var conn = this.connection;
 	var updatedClient = clients[conn.id];
 
 	for (var c in clients)
 	{
 		var remote = clients[c].remote;
-		remote.updateState(updatedClient.id, keys);
+		remote.updateState(updatedClient.id, state);
 
 		//keep last known state so we can send it to new connected clients
-		clients[c].laststate = keys;
+		clients[c].laststate = state;
 	}
 }
 server.listen(8000);

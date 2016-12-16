@@ -9,6 +9,12 @@ var layer0;
 var ready = false;
 var players = {};
 
+var defaultFont = {
+  font: '16px Courier',
+  fill: '#fff',
+  align: 'center'
+}
+
 
 var eurecaClientSetup = function() {
   var eurecaClient = new Eureca.Client();
@@ -34,22 +40,23 @@ var eurecaClientSetup = function() {
   eurecaClient.exports.spawnPlayer = function(h, e, x){
     if (h == myId) return; // only spawn other players
 
-    console.log('PLAYER SPAWN');
-    var plr = new Player(h, game, avatar);
+    console.log(`PLAYER SPAWN: ${h}`);
+    var plr = new Player(h, game, avatar, "Player");
     players[h] = plr;
   }
 
   eurecaClient.exports.updateState = function(id, state){
     if (players[id]){
-      players[id].cursor = state;
+      players[id].cursor = state.input;
       players[id].avatar.x = state.x;
       players[id].avatar.y = state.y;
+      if(players[id].nick != state.nick) players[id].setNick(state.nick);
       players[id].update();
     }
   }
 }
 
-Player = function(index, game, avatar){
+Player = function(index, game, avatar, nick){
   this.cursor = {
     left: false,
     right: false,
@@ -57,44 +64,63 @@ Player = function(index, game, avatar){
     down: false
   }
 
-  this.input = {
-    left: false,
-    right: false,
-    up: false,
-    down: false
+  this.state = {
+    input: {
+      left: false,
+      right: false,
+      up: false,
+      down: false
+    },
+    nick: nick
   }
 
   var x = 0;
   var y = 0;
 
   this.game = game;
+
+  // avatar
   this.avatar = game.add.sprite(32, 32, 'avatar');
   game.add.existing(this.avatar); // you have to do this
-  this.avatar.animations.add('walk');
+  this.avatar.animations.add('walk', [0, 1, 0, 2], 10, true);
   this.avatar.id = index;
   game.physics.enable(this.avatar, Phaser.Physics.ARCADE);
   this.avatar.immovable = false;
   this.avatar.collideWorldBounds = true;
+
+  // default stats
   this.moveSpeed = moveSpeed;
+
+  // username
+  this.nick = nick;
+  this.label = game.add.text(0, 0, this.state.nick, defaultFont);
+  this.label.anchor.set(0.5);
+  this.label.alignTo = function(sprite, pct_x, pct_y, pad_x, pad_y){
+    this.x = Math.floor(sprite.x + (pct_x*sprite.width) + pad_x);
+    this.y = Math.floor(sprite.y + (pct_y*sprite.height) + pad_y);
+  }
+  this.setNick = function(text) {
+    this.nick = this.state.nick = this.label.text = text;
+  }
 
   // end Player
 };
 
 Player.prototype.update = function(){
   var inputChanged = (
-    this.cursor.left != this.input.left ||
-    this.cursor.right != this.input.right ||
-    this.cursor.up != this.input.up ||
-    this.cursor.down != this.input.down
+    this.cursor.left != this.state.input.left ||
+    this.cursor.right != this.state.input.right ||
+    this.cursor.up != this.state.input.up ||
+    this.cursor.down != this.state.input.down
   );
 
   if (inputChanged){
     // send new keypresses to server
     if (this.avatar.id == myId){
-      this.input.x = this.avatar.x;
-      this.input.y = this.avatar.y;
+      this.state.x = this.avatar.x;
+      this.state.y = this.avatar.y;
 
-      eurecaServer.handleKeys(this.input);
+      eurecaServer.handleState(this.state);
     }
   }
 
@@ -104,7 +130,7 @@ Player.prototype.update = function(){
     this.cursor.down == false){
     this.avatar.animations.stop();
   } else {
-    this.avatar.animations.play('walk', 50, true);
+    this.avatar.animations.play('walk');
   }
 
   // actual player movement calculation
@@ -120,6 +146,9 @@ Player.prototype.update = function(){
   if (this.cursor.right){
     this.avatar.x += this.moveSpeed;
   }
+
+  // update display name position
+  this.label.alignTo(this.avatar, 0.5, 0, 0, -10);
 
   // end Player.update
 }
@@ -178,7 +207,7 @@ function create() {
   layer0 = map.createLayer(0);
   layer0.resizeWorld();
 
-  player = new Player(myId, game, avatar);
+  player = new Player(myId, game, avatar, "Player");
   players[myId] = player;
   avatar = player.avatar;
   player.avatar.x=0;
@@ -192,14 +221,16 @@ function update() {
   if (!ready) return;
 
   // update player movements (server processes them later)
-  player.input.left = cursors.left.isDown;
-  player.input.right = cursors.right.isDown;
-  player.input.up = cursors.up.isDown;
-  player.input.down = cursors.down.isDown;
+  player.state.input.left = cursors.left.isDown;
+  player.state.input.right = cursors.right.isDown;
+  player.state.input.up = cursors.up.isDown;
+  player.state.input.down = cursors.down.isDown;
 
   for (var i in players) {
     players[i].update();
   }
 };
+
+
 
 function render() {}
