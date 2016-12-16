@@ -3,11 +3,13 @@ var eurecaServer;
 var avatar;
 var player;
 var moveSpeed = 2;
-var cursors;
+var keys;
 var map;
 var layer0;
 var ready = false;
 var players = {};
+var chatBox;
+var enterCooldown = 0;
 
 var defaultFont = {
   font: '16px Arial',
@@ -116,13 +118,17 @@ Player = function(index, game, avatar, nick){
   this.successiveChats = 0;
   this.banned = false;
   this.messages = {};
-  this.sendMessage = function(text, audience){
-    var msg = new Message(text, this, audience);
-    if (!isNaN(msg)) {
+  this.sendMessage = function(text){
+    if (text.trim() == '') return;
+
+    var msg = new Message(text, this);
+    if (typeof(msg) == Number) {
       return `Chat error: ${msg}`; // TODO put errors in chatlog
     }
 
-    chatlog[msg.time] = msg;
+    console.log(`${this.nick}: ${msg.text}`);
+
+    this.state.chatlog[msg.time] = msg;
   }
 
   // end Player
@@ -217,20 +223,6 @@ function setupGUI() {
   EZGUI.components.nickBtn.on('click', function(){
     player.setNick(EZGUI.components.nickField.text);
   });
-
-  EZGUI.components.chatBox.on('keypress', function(event){
-    var chatBox = EZGUI.components.chatBox;
-    if (event.keyCode != 13) return; // keycode 13 == enter
-    if (event.keyCode == 27) { // keycode 27 == esc
-      chatBox.focused = false;
-      return;
-    }
-
-    if (!chatBox.focused) chatBox.focus();
-    else {
-      player.sendMessage(chatBox.text, players);
-    }
-  });
 }
 
 EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], function() {
@@ -243,26 +235,60 @@ EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], fun
   settingsScreen = EZGUI.create(settingsScreenJSON, 'metalworks');
   settingsScreen.visible = false;
 
-  chatBox = EZGUI.create(chatBoxJSON, 'metalworks');
-  chatBox.visible = true;
-
   setupGUI();
 });
 
 //
 // Chat system
 //
-Message = function(player, text, audience){
+Message = function(text, player){
   if (!player) return 1;
   if (player.banned) return 2;
   if (player.timeSinceLastChat < 10000 && player.successiveChats > 3) return 3;
+  if (text == '') return 4;
 
-  this.text = text.slice(0,500); // TODO: decide on (or remove) magic number
+  this.text = text//.slice(0,500); // TODO: decide on (or remove) magic number
   this.time = Date.now();
-  this.audience = audience;
 
   player.timeSinceLastChat = 0;
   player.successiveChats++;
+}
+
+function openChatBox(){
+  if (chatBox && chatBox.open) return;
+
+  console.log("OPENING CHATBOX");
+
+  chatBox = game.add.inputField(10, 480, {
+    font: '16px Arial',
+    fill: '#fff',
+    backgroundColor: '#000',
+    cursorColor: '#fff',
+    width: 800,
+    height: 25,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: 0,
+    placeHolder: 'Type a message to chat...',
+    max: 500
+  });
+
+  chatBox.open = true;
+
+  // PhaserInput method for autofocus
+  //chatBox.value = '';
+  //chatBox.startFocus();
+  // TODO figure this out
+}
+
+function closeChatBox(){
+  if (chatBox && !chatBox.open) return;
+  chatBox.open = false;
+
+  console.log("CLOSING CHATBOX");
+
+  chatBox.destroy();
 }
 
 //
@@ -275,6 +301,8 @@ function preload() {
   game.load.spritesheet('avatar', 'assets/player.png', 32, 32);
   game.load.tilemap('map', 'assets/map.csv');
   game.load.image('tileset','assets/tileset.png');
+
+  game.add.plugin(Fabrique.Plugins.InputField);
 }
 
 function create() {
@@ -292,7 +320,8 @@ function create() {
   player.avatar.x=0;
   player.avatar.y=game.world.height*Math.random();
 
-  cursors = game.input.keyboard.createCursorKeys();
+  keys = game.input.keyboard.createCursorKeys();
+  keys.enter = game.input.keyboard.addKey(Phaser.Keyboard.ENTER);
 }
 
 
@@ -300,10 +329,21 @@ function update() {
   if (!ready) return;
 
   // update player movements (server processes them later)
-  player.state.input.left = cursors.left.isDown;
-  player.state.input.right = cursors.right.isDown;
-  player.state.input.up = cursors.up.isDown;
-  player.state.input.down = cursors.down.isDown;
+  player.state.input.left = keys.left.isDown;
+  player.state.input.right = keys.right.isDown;
+  player.state.input.up = keys.up.isDown;
+  player.state.input.down = keys.down.isDown;
+
+  if (keys.enter.isDown && enterCooldown > 50){
+    if (chatBox && chatBox.open){
+      player.sendMessage(chatBox.text.text, players);
+      closeChatBox();
+    } else if (!chatBox || chatBox && !chatBox.open) {
+      openChatBox();
+    }
+    enterCooldown = 0;
+  }
+  enterCooldown++;
 
   for (var i in players) {
     players[i].update();
