@@ -65,8 +65,9 @@ eurecaServer.exports.handshake = function()
 			var x = clients[cc].laststate ? clients[cc].laststate.x : 0;
 			var y = clients[cc].laststate ? clients[cc].laststate.y : 0;
       var nick = clients[cc].laststate ? clients[cc].laststate.nick : "Player";
+      var chat = clients[cc].laststate ? clients[cc].laststate.chatlog : {};
 
-			remote.spawnPlayer(clients[cc].id, x, y, nick);
+			remote.spawnPlayer(clients[cc].id, x, y, nick, chat);
 		}
 	}
 }
