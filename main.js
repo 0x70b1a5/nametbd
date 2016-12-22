@@ -37,17 +37,20 @@ $(function() {
 
   // Sets the client's username
   function setUsername () {
-    username = cleanInput($usernameInput.val().trim());
+    username = cleanInput($usernameInput.val().trim().slice(0,20));
 
     // If the username is valid
-    if (username) {
+    if (username && player) {
       $loginPage.fadeOut();
       $chatPage.show();
       $loginPage.off('click');
       $currentInput = $inputMessage.focus();
 
       // Tell the server your username
-      socket.emit('add user', username);
+      // and begin game
+      socket.emit('add user', username, player.avatar.id);
+      player.setNick(username);
+      ready = true;
     }
   }
 

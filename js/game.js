@@ -174,55 +174,6 @@ Player.prototype.kill = function() {
   this.label.destroy();
 }
 
-//
-// GUI
-//
-var menuScreen;
-var gameScreen;
-var settingsScreen;
-
-function setupGUI() {
-  EZGUI.components.playBtn.on('click', function() {
-    gameScreen.visible = true;
-    menuScreen.visible = false;
-    ready = true;
-  });
-
-  EZGUI.components.quitBtn.on('click', function() {
-    gameScreen.visible = false;
-    menuScreen.visible = true;
-    ready = false;
-  });
-
-  EZGUI.components.settingsBtn.on('click', function() {
-    gameScreen.visible = false;
-    EZGUI.components.nickField.text = player.nick; // prefill
-    settingsScreen.visible = true;
-  });
-
-  EZGUI.components.closeSettingsBtn.on('click', function() {
-    settingsScreen.visible = false;
-    gameScreen.visible = true;
-  });
-
-  EZGUI.components.nickBtn.on('click', function(){
-    player.setNick(EZGUI.components.nickField.text);
-  });
-}
-
-EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], function() {
-  menuScreen = EZGUI.create(menuScreenJSON, 'metalworks');
-  menuScreen.visible = true;
-
-  gameScreen = EZGUI.create(gameScreenJSON, 'metalworks');
-  gameScreen.visible = false;
-
-  settingsScreen = EZGUI.create(settingsScreenJSON, 'metalworks');
-  settingsScreen.visible = false;
-
-  setupGUI();
-});
-
 
 //
 // Setup the main game
@@ -234,8 +185,6 @@ function preload() {
   game.load.spritesheet('avatar', 'assets/player.png', 32, 32);
   game.load.tilemap('map', 'assets/map.csv');
   game.load.image('tileset','assets/tileset.png');
-
-  game.add.plugin(Fabrique.Plugins.InputField);
 }
 
 function create() {
