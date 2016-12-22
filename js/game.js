@@ -8,9 +8,6 @@ var map;
 var layer0;
 var ready = false;
 var players = {};
-var chatInputBox;
-var enterCooldown = 0;
-var chatBox;
 
 var defaultFont = {
   font: '16px Arial',
@@ -61,9 +58,6 @@ var eurecaClientSetup = function() {
     players[id].avatar.x = state.x;
     players[id].avatar.y = state.y;
     if (players[id].nick != state.nick) players[id].setNick(state.nick);
-    if (!equal(players[id].state.chatlog, state.chatlog)){
-      players[id].state.chatlog = state.chatlog;
-    }
 
     players[id].update();
   }
@@ -72,7 +66,7 @@ var eurecaClientSetup = function() {
 //
 // Player class, methods
 //
-Player = function(index, game, avatar, nick, chatlog){
+Player = function(index, game, avatar, nick){
   this.cursor = {
     left: false,
     right: false,
@@ -87,8 +81,7 @@ Player = function(index, game, avatar, nick, chatlog){
       up: false,
       down: false
     },
-    nick: nick,
-    chatlog: (chatlog || {})
+    nick: nick
   }
 
   var x = 0;
@@ -121,30 +114,10 @@ Player = function(index, game, avatar, nick, chatlog){
   }
 
   // chat
-  this.timeSinceLastChat = Infinity;
-  this.successiveChats = 0;
-  this.banned = false;
-  this.chatlog = {};
-  this.messages = {};
-  this.sendMessage = function(text){
-    if (text.trim() == '') return;
-
-    var msg = new Message(text);
-    if (this.banned ||
-      this.timeSinceLastChat < 1000 && player.successiveChats > 3 ||
-      text == ''){
-      return "Could not send message"; // TODO put errors in chatlog
-    }
-    this.messages[msg.time] = msg;
-
-    console.log(`${this.nick}: ${msg.text}`);
-
-    this.chatlog[msg.time] = [this.nick, msg.text];
-
-    this.timeSinceLastChat = 0;
-    this.successiveChats++;
-
-  }
+//   this.timeSinceLastChat = Infinity;
+//   this.successiveChats = 0;
+//   this.banned = false;
+//   this.messages = {};
 
   // end Player
 };
@@ -162,20 +135,6 @@ Player.prototype.update = function(){
     if (this.avatar.id == myId){
       this.state.x = this.avatar.x;
       this.state.y = this.avatar.y;
-
-      eurecaServer.handleState(this.state);
-    }
-  }
-
-  var chatChanged = (
-    (!isEmpty(this.chatlog) || !isEmpty(this.state.chatlog)) &&
-    !equal(this.chatlog, this.state.chatlog)
-  );
-  if (chatChanged) {
-    if (this.avatar.id == myId) {
-      debugger;
-      // send new chat to server
-      this.state.chatlog = this.chatlog;
 
       eurecaServer.handleState(this.state);
     }
@@ -206,9 +165,6 @@ Player.prototype.update = function(){
 
   // display name position
   this.label.alignTo(this.avatar, 0.5, 0, 0, -10);
-
-  // chat calculations
-  this.timeSinceLastChat++;
 
   // end Player.update()
 }
@@ -267,50 +223,6 @@ EZGUI.Theme.load(['../EZGUI/assets/metalworks-theme/metalworks-theme.json'], fun
   setupGUI();
 });
 
-//
-// Chat system
-//
-Message = function(text){
-  this.text = text//.slice(0,500); // TODO: decide on (or remove) magic number
-  this.time = Date.now();
-}
-
-function openChatBox(){
-  if (chatInputBox && chatInputBox.open) return;
-
-  console.log("OPENING CHATBOX");
-
-  chatInputBox = game.add.inputField(10, 480, {
-    font: '16px Arial',
-    fill: '#fff',
-    backgroundColor: '#000',
-    cursorColor: '#fff',
-    width: 800,
-    height: 25,
-    padding: 2,
-    borderWidth: 1,
-    borderColor: '#fff',
-    borderRadius: 0,
-    placeHolder: 'Type a message to chat...',
-    max: 500
-  });
-
-  chatInputBox.open = true;
-
-  // PhaserInput method for autofocus
-  //chatInputBox.value = '';
-  //chatInputBox.startFocus();
-  // TODO figure this out
-}
-
-function closeChatBox(){
-  if (chatInputBox && !chatInputBox.open) return;
-  chatInputBox.open = false;
-
-  console.log("CLOSING CHATBOX");
-
-  chatInputBox.destroy();
-}
 
 //
 // Setup the main game
@@ -342,9 +254,6 @@ function create() {
   player.avatar.y=game.world.height*Math.random();
 
   keys = game.input.keyboard.createCursorKeys();
-  keys.enter = game.input.keyboard.addKey(Phaser.Keyboard.ENTER);
-
-  allChatBox = game.add.text(10, 400, '', chatFont);
 }
 
 
@@ -356,27 +265,6 @@ function update() {
   player.state.input.right = keys.right.isDown;
   player.state.input.up = keys.up.isDown;
   player.state.input.down = keys.down.isDown;
-  player.state.chatlog = player.chatlog;
-
-  // parse enter key for chatInputBox behavior
-  if (keys.enter.isDown && enterCooldown > 50){
-    if (chatInputBox && chatInputBox.open){
-      player.sendMessage(chatInputBox.text.text);
-      closeChatBox();
-    } else if (!chatInputBox || chatInputBox && !chatInputBox.open) {
-      openChatBox();
-    }
-    enterCooldown = 0;
-  }
-  enterCooldown++;
-
-  // draw the 10 most recent chats
-  allChatBox.text = '';
-  var rows = Object.keys(player.chatlog).sort().slice(-10);
-  for (var i=0;i<rows.length;i++){
-    // can this get any uglier?
-    allChatBox.text += `${player.chatlog[rows[i]][0]}: ${player.chatlog[rows[i]][1]}\n`;
-  }
 
   for (var i in players) {
     players[i].update();
@@ -386,11 +274,3 @@ function update() {
 
 
 function render() {}
-
-function isEmpty(obj) {
-  return Object.keys(obj).length === 0 && obj.constructor === Object;
-}
-
-function equal(obj1, obj2){
-  return JSON.stringify(obj1) == JSON.stringify(obj2);
-}
