@@ -26,6 +26,12 @@ html, body {
   padding: 0;
 }
 
+#main {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+}
+
 ul {
   list-style: none;
   word-wrap: break-word;
@@ -34,7 +40,7 @@ ul {
 /* Pages */
 
 .pages {
-  height: 200px;
+  height: 297px;
   margin: 0;
   padding: 0;
   width: 1024px;
@@ -95,7 +101,7 @@ ul {
 /* Font */
 
 .messages {
-  font-size: 150%;
+/*   font-size: 150%; */
 }
 
 .inputMessage {
@@ -113,7 +119,7 @@ ul {
 
 .chatArea {
   height: 100%;
-  padding-bottom: 60px;
+/*   padding-bottom: 60px; */
 }
 
 .messages {
@@ -138,12 +144,12 @@ ul {
 
 .inputMessage {
   border: 10px solid #000;
-  bottom: 0;
+/*   bottom: 0; */
   height: 60px;
-  left: 0;
+/*   left: 0; */
   outline: none;
   padding-left: 10px;
-  position: absolute;
-  right: 0;
+/*   position: absolute; */
+/*   right: 0; */
   width: 100%;
 }
