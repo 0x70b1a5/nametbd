@@ -10,7 +10,6 @@ var ready = false;
 var players = {};
 var chatInputBox;
 var enterCooldown = 0;
-var chatRecord = {};
 var chatBox;
 
 var defaultFont = {
@@ -62,7 +61,7 @@ var eurecaClientSetup = function() {
     players[id].avatar.x = state.x;
     players[id].avatar.y = state.y;
     if (players[id].nick != state.nick) players[id].setNick(state.nick);
-    if (players[id].state.chatlog != state.chatlog){
+    if (!equal(players[id].state.chatlog, state.chatlog)){
       players[id].state.chatlog = state.chatlog;
     }
 
@@ -89,7 +88,7 @@ Player = function(index, game, avatar, nick, chatlog){
       down: false
     },
     nick: nick,
-    chatlog: chatlog
+    chatlog: (chatlog || {})
   }
 
   var x = 0;
@@ -125,6 +124,7 @@ Player = function(index, game, avatar, nick, chatlog){
   this.timeSinceLastChat = Infinity;
   this.successiveChats = 0;
   this.banned = false;
+  this.chatlog = {};
   this.messages = {};
   this.sendMessage = function(text){
     if (text.trim() == '') return;
@@ -139,7 +139,7 @@ Player = function(index, game, avatar, nick, chatlog){
 
     console.log(`${this.nick}: ${msg.text}`);
 
-    chatRecord[msg.time] = [this.nick, msg.text];
+    this.chatlog[msg.time] = [this.nick, msg.text];
 
     this.timeSinceLastChat = 0;
     this.successiveChats++;
@@ -167,9 +167,18 @@ Player.prototype.update = function(){
     }
   }
 
-  var chatChanged = (chatRecord != this.state.chatlog);
+  var chatChanged = (
+    (!isEmpty(this.chatlog) || !isEmpty(this.state.chatlog)) &&
+    !equal(this.chatlog, this.state.chatlog)
+  );
   if (chatChanged) {
-    this.state.chatlog = chatRecord;
+    if (this.avatar.id == myId) {
+      debugger;
+      // send new chat to server
+      this.state.chatlog = this.chatlog;
+
+      eurecaServer.handleState(this.state);
+    }
   }
 
   if (this.cursor.left == false &&
@@ -347,11 +356,12 @@ function update() {
   player.state.input.right = keys.right.isDown;
   player.state.input.up = keys.up.isDown;
   player.state.input.down = keys.down.isDown;
+  player.state.chatlog = player.chatlog;
 
   // parse enter key for chatInputBox behavior
   if (keys.enter.isDown && enterCooldown > 50){
     if (chatInputBox && chatInputBox.open){
-      player.sendMessage(chatInputBox.text.text, players);
+      player.sendMessage(chatInputBox.text.text);
       closeChatBox();
     } else if (!chatInputBox || chatInputBox && !chatInputBox.open) {
       openChatBox();
@@ -362,10 +372,10 @@ function update() {
 
   // draw the 10 most recent chats
   allChatBox.text = '';
-  var rows = Object.keys(chatRecord).sort().slice(-10);
+  var rows = Object.keys(player.chatlog).sort().slice(-10);
   for (var i=0;i<rows.length;i++){
     // can this get any uglier?
-    allChatBox.text += `${chatRecord[rows[i]][0]}: ${chatRecord[rows[i]][1]}\n`;
+    allChatBox.text += `${player.chatlog[rows[i]][0]}: ${player.chatlog[rows[i]][1]}\n`;
   }
 
   for (var i in players) {
@@ -376,3 +386,11 @@ function update() {
 
 
 function render() {}
+
+function isEmpty(obj) {
+  return Object.keys(obj).length === 0 && obj.constructor === Object;
+}
+
+function equal(obj1, obj2){
+  return JSON.stringify(obj1) == JSON.stringify(obj2);
+}

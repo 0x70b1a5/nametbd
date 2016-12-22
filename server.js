@@ -1,6 +1,8 @@
 var express = require('express')
   , app = express(app)
-  , server = require('http').createServer(app);
+  , server = require('http').createServer(app)
+  , io = require('socket.io')(server)
+  , port = process.env.PORT || 8000;
 
 // serve static files from the current directory
 app.use(express.static(__dirname));
@@ -65,9 +67,8 @@ eurecaServer.exports.handshake = function()
 			var x = clients[cc].laststate ? clients[cc].laststate.x : 0;
 			var y = clients[cc].laststate ? clients[cc].laststate.y : 0;
       var nick = clients[cc].laststate ? clients[cc].laststate.nick : "Player";
-      var chat = clients[cc].laststate ? clients[cc].laststate.chatlog : {};
 
-			remote.spawnPlayer(clients[cc].id, x, y, nick, chat);
+			remote.spawnPlayer(clients[cc].id, x, y, nick);
 		}
 	}
 }
@@ -87,4 +88,72 @@ eurecaServer.exports.handleState = function (state) {
 		clients[c].laststate = state;
 	}
 }
-server.listen(8000);
+
+
+// Chatroom (thank you SOCKET.IO)
+
+var numUsers = 0;
+
+io.on('connection', function (socket) {
+  var addedUser = false;
+
+  // when the client emits 'new message', this listens and executes
+  socket.on('new message', function (data) {
+    // we tell the client to execute 'new message'
+    socket.broadcast.emit('new message', {
+      username: socket.username,
+      message: data
+    });
+  });
+
+  // when the client emits 'add user', this listens and executes
+  socket.on('add user', function (username) {
+    if (addedUser) return;
+
+    // we store the username in the socket session for this client
+    socket.username = username;
+    ++numUsers;
+    addedUser = true;
+    socket.emit('login', {
+      numUsers: numUsers
+    });
+    // echo globally (all clients) that a person has connected
+    socket.broadcast.emit('user joined', {
+      username: socket.username,
+      numUsers: numUsers
+    });
+  });
+
+  // when the client emits 'typing', we broadcast it to others
+  socket.on('typing', function () {
+    socket.broadcast.emit('typing', {
+      username: socket.username
+    });
+  });
+
+  // when the client emits 'stop typing', we broadcast it to others
+  socket.on('stop typing', function () {
+    socket.broadcast.emit('stop typing', {
+      username: socket.username
+    });
+  });
+
+  // when the user disconnects.. perform this
+  socket.on('disconnect', function () {
+    if (addedUser) {
+      --numUsers;
+
+      // echo globally that this client has left
+      socket.broadcast.emit('user left', {
+        username: socket.username,
+        numUsers: numUsers
+      });
+    }
+  });
+});
+
+
+// SERVER START!
+server.listen(8000, function () {
+  console.log('Server listening at port %d', port);
+});
