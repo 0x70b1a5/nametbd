@@ -2,12 +2,21 @@
 var eurecaServer;
 var avatar;
 var player;
-var moveSpeed = 2;
+var moveSpeed = 200;
 var keys;
 var map;
 var layer0;
 var ready = false;
 var players = {};
+var overworld = [
+];
+
+Room = function(id, x, y, neighbors){
+  this.id = id;
+  this.width = x;
+  this.height = y;
+  this.neighbors = neighbors;
+}
 
 var defaultFont = {
   font: '16px Arial',
@@ -66,7 +75,7 @@ var eurecaClientSetup = function() {
 //
 // Player class, methods
 //
-Player = function(index, game, avatar, nick){
+Player = function(index, game, avatar, nick, room){
   this.cursor = {
     left: false,
     right: false,
@@ -81,7 +90,8 @@ Player = function(index, game, avatar, nick){
       up: false,
       down: false
     },
-    nick: nick
+    nick: nick,
+    room: (room || 1)
   }
 
   var x = 0;
@@ -90,13 +100,12 @@ Player = function(index, game, avatar, nick){
   this.game = game;
 
   // avatar
-  this.avatar = game.add.sprite(32, 32, 'avatar');
-  game.add.existing(this.avatar); // you have to do this
+  this.avatar = game.add.sprite(32, 32, 'avatar', 0);
   this.avatar.animations.add('walk', [0, 1, 0, 2], 10, true);
-  this.avatar.id = index;
   game.physics.enable(this.avatar, Phaser.Physics.ARCADE);
-  this.avatar.immovable = false;
-  this.avatar.collideWorldBounds = true;
+  this.avatar.body.setSize(16, 32, 8, 0);
+  this.avatar.body.collideWorldBounds = true;
+  this.avatar.id = index;
 
   // default stats
   this.moveSpeed = moveSpeed;
@@ -113,6 +122,9 @@ Player = function(index, game, avatar, nick){
     this.nick = this.state.nick = this.label.text = text.slice(0,20);
   }
 
+  // navigation
+  this.room = 1;
+
   // chat
 //   this.timeSinceLastChat = Infinity;
 //   this.successiveChats = 0;
@@ -121,6 +133,8 @@ Player = function(index, game, avatar, nick){
 
   // end Player
 };
+
+
 
 Player.prototype.update = function(){
   var inputChanged = (
@@ -150,18 +164,13 @@ Player.prototype.update = function(){
   }
 
   // actual player movement calculation
-  if (this.cursor.up){
-    this.avatar.y -= this.moveSpeed;
-  }
-  if (this.cursor.down){
-    this.avatar.y += this.moveSpeed;
-  }
-  if (this.cursor.left){
-    this.avatar.x -= this.moveSpeed;
-  }
-  if (this.cursor.right){
-    this.avatar.x += this.moveSpeed;
-  }
+  this.avatar.body.velocity.set(0);
+  if (this.cursor.up){ this.avatar.body.velocity.y = -this.moveSpeed; }
+  if (this.cursor.down){ this.avatar.body.velocity.y = this.moveSpeed; }
+  if (this.cursor.left){ this.avatar.body.velocity.x = -this.moveSpeed; }
+  if (this.cursor.right){ this.avatar.body.velocity.x = this.moveSpeed; }
+
+  // room nav?
 
   // display name position
   this.label.alignTo(this.avatar, 0.5, 0, 0, -10);
@@ -183,24 +192,29 @@ var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, creat
 
 function preload() {
   game.load.spritesheet('avatar', 'assets/player.png', 32, 32);
-  game.load.tilemap('map', 'assets/map.csv');
+  game.load.tilemap('map1', 'assets/1.csv');
   game.load.image('tileset','assets/tileset.png');
+
+
 }
 
 function create() {
   game.physics.startSystem(Phaser.Physics.ARCADE);
 
-  map = game.add.tilemap('map', 32, 32);
+  map = game.add.tilemap('map1', 32, 32);
   map.addTilesetImage('tileset');
+  map.setCollisionBetween(2,8);
+  map.setCollisionBetween(10,14);
 
   layer0 = map.createLayer(0);
   layer0.resizeWorld();
+  layer0.debug = true;
 
-  player = new Player(myId, game, avatar, "Player");
+  player = new Player(myId, game, avatar, "Player", 1);
   players[myId] = player;
   avatar = player.avatar;
-  player.avatar.x=0;
-  player.avatar.y=game.world.height*Math.random();
+  player.avatar.x=512;
+  player.avatar.y=206;
 
   keys = game.input.keyboard.createCursorKeys();
 }
@@ -208,6 +222,8 @@ function create() {
 
 function update() {
   if (!ready) return;
+
+  game.physics.arcade.collide(player.avatar,layer0);
 
   // update player movements (server processes them later)
   player.state.input.left = keys.left.isDown;
@@ -222,4 +238,8 @@ function update() {
 
 
 
-function render() {}
+function render() {
+  if (!ready) return;
+  game.debug.body(player);
+
+}

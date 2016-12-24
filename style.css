@@ -102,6 +102,8 @@ ul {
 
 .messages {
 /*   font-size: 150%; */
+  background-color: #000;
+  color: #fff;
 }
 
 .inputMessage {
