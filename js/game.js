@@ -170,7 +170,8 @@ Player.prototype.update = function(){
   if (this.cursor.left){ this.avatar.body.velocity.x = -this.moveSpeed; }
   if (this.cursor.right){ this.avatar.body.velocity.x = this.moveSpeed; }
 
-  // room nav?
+  // room nav
+
 
   // display name position
   this.label.alignTo(this.avatar, 0.5, 0, 0, -10);
@@ -192,7 +193,7 @@ var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, creat
 
 function preload() {
   game.load.spritesheet('avatar', 'assets/player.png', 32, 32);
-  game.load.tilemap('map1', 'assets/1.csv');
+  game.load.tilemap('map1', 'assets/map.json', null, Phaser.Tilemap.TILED_JSON);
   game.load.image('tileset','assets/tileset.png');
 
 
@@ -202,7 +203,7 @@ function create() {
   game.physics.startSystem(Phaser.Physics.ARCADE);
 
   map = game.add.tilemap('map1', 32, 32);
-  map.addTilesetImage('tileset');
+  map.addTilesetImage('Room1', 'tileset');
   map.setCollisionBetween(2,8);
   map.setCollisionBetween(10,14);
 
@@ -223,6 +224,7 @@ function create() {
 function update() {
   if (!ready) return;
 
+  // run collisions (note: player.avatar, not player)
   game.physics.arcade.collide(player.avatar,layer0);
 
   // update player movements (server processes them later)
@@ -239,7 +241,6 @@ function update() {
 
 
 function render() {
-  if (!ready) return;
-  game.debug.body(player);
-
+//   if (!ready) return;
+//   game.debug.body(player);
 }
