@@ -1,21 +1,59 @@
-
+var debug = true;
 var eurecaServer;
 var avatar;
 var player;
 var moveSpeed = 200;
 var keys;
-var map;
+var maps = {};
 var layer0;
 var ready = false;
 var players = {};
-var overworld = [
-];
 
-Room = function(id, x, y, neighbors){
+Room = function(id, x, y, doors){
   this.id = id;
   this.width = x;
   this.height = y;
-  this.neighbors = neighbors;
+  this.doors = doors;
+  this.neighbors = Object.keys(doors);
+
+  this.hasDoor = function(x, y){
+    for (var i in this.doors){
+      if (this.doors[i].x == x && this.doors[i].y == y) return true;
+    }
+    return false;
+  }
+
+  this.findNeighbor = function(x, y){
+    for (var i in this.doors){
+      if (this.doors[i].x == x && this.doors[i].y == y) return i;
+    }
+    return false;
+  }
+}
+
+var room1 = new Room(1, 32, 16, {
+      2: {x: 18, y: 5},
+      3: {x: 8,  y: 7}
+    }),
+    room2 = new Room(2, 32, 16, {
+      1: {x: 10,  y: 10}
+    }),
+    room3 = new Room(3, 32, 16, {
+      1: {x: 10,  y: 10}
+    });
+
+var rooms = {
+  1: room1,
+  2: room2,
+  3: room3
+}
+
+function enterDoor(sprite, tile){ // TODO redo as player class method
+  var currentRoom = rooms[player.room];
+  if (currentRoom.hasDoor(tile.x, tile.y)) {
+    var nextRoom = currentRoom.findNeighbor(tile.x, tile.y);
+    player.enterRoom(nextRoom, tile.x*tile.width, tile.y*tile.height);
+  }
 }
 
 var defaultFont = {
@@ -118,12 +156,22 @@ Player = function(index, game, avatar, nick, room){
     this.x = Math.floor(sprite.x + (pct_x*sprite.width) + pad_x);
     this.y = Math.floor(sprite.y + (pct_y*sprite.height) + pad_y);
   }
+
   this.setNick = function(text) {
     this.nick = this.state.nick = this.label.text = text.slice(0,20);
   }
 
+
   // navigation
-  this.room = 1;
+  this.room = room || 1;
+  this.enterRoom = function(id, x, y){
+    if (rooms[id] && rooms[this.room].neighbors.indexOf(id) != -1){
+      setMapRoom(id);
+      this.avatar.bringToTop();
+      this.label.bringToTop();
+      this.room = id;
+    }
+  }
 
   // chat
 //   this.timeSinceLastChat = Infinity;
@@ -170,9 +218,6 @@ Player.prototype.update = function(){
   if (this.cursor.left){ this.avatar.body.velocity.x = -this.moveSpeed; }
   if (this.cursor.right){ this.avatar.body.velocity.x = this.moveSpeed; }
 
-  // room nav
-
-
   // display name position
   this.label.alignTo(this.avatar, 0.5, 0, 0, -10);
 
@@ -194,22 +239,16 @@ var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, creat
 function preload() {
   game.load.spritesheet('avatar', 'assets/player.png', 32, 32);
   game.load.tilemap('map1', 'assets/map.json', null, Phaser.Tilemap.TILED_JSON);
+  game.load.tilemap('map2', 'assets/2.json', null, Phaser.Tilemap.TILED_JSON);
+  game.load.tilemap('map3', 'assets/3.json', null, Phaser.Tilemap.TILED_JSON);
   game.load.image('tileset','assets/tileset.png');
-
-
 }
+
 
 function create() {
   game.physics.startSystem(Phaser.Physics.ARCADE);
 
-  map = game.add.tilemap('map1', 32, 32);
-  map.addTilesetImage('Room1', 'tileset');
-  map.setCollisionBetween(2,8);
-  map.setCollisionBetween(10,14);
-
-  layer0 = map.createLayer(0);
-  layer0.resizeWorld();
-  layer0.debug = true;
+  setMapRoom(1);
 
   player = new Player(myId, game, avatar, "Player", 1);
   players[myId] = player;
@@ -220,12 +259,25 @@ function create() {
   keys = game.input.keyboard.createCursorKeys();
 }
 
+function setMapRoom(id){
+  maps[id] = game.add.tilemap(`map${id}`, 32, 32);
+  maps[id].addTilesetImage(`Room${id}`, 'tileset');
+  maps[id].setCollisionBetween(3,9);
+  maps[id].setCollisionBetween(11,15);
+  maps[id].setTileIndexCallback(10, enterDoor, this); // makes door tiles work
+
+  if (layer0) layer0.destroy();
+  layer0 = maps[id].createLayer(0);
+  layer0.resizeWorld();
+  if (debug) layer0.debug = true;
+}
+
 
 function update() {
   if (!ready) return;
 
   // run collisions (note: player.avatar, not player)
-  game.physics.arcade.collide(player.avatar,layer0);
+  game.physics.arcade.collide(player.avatar, layer0);
 
   // update player movements (server processes them later)
   player.state.input.left = keys.left.isDown;
