@@ -12,9 +12,22 @@
     <script src="node_modules/phaser-input/build/phaser-input.js"></script>
     <script src="../../EZGUI/js/EZGUI.js"></script>
     <script src="./js/app-gui.js"></script> -->
-    <script src="./js/game.js"></script>
+    <script src="./js/boot.js"></script>
+    <script src="./js/preload.js"></script>
+    <script src="./js/title.js"></script>
+    <script src="./js/main.js"></script>
+    <script>
+      var nameTBD = new Phaser.Game(1024, 512, Phaser.CANVAS, "game");
+      nameTBD.state.add("boot",boot);
+      nameTBD.state.add("preload",preload);
+      nameTBD.state.add("title",title);
+      nameTBD.state.add("main",main);
+
+      nameTBD.state.start("boot");
+    </script>
   </head>
   <body>
+
     <div id="main">
       <ul class="pages">
         <li class="chat page">

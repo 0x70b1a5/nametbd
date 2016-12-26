@@ -21,8 +21,9 @@ eurecaServer.attach(server);
 
 
 
-
+//
 //eureca.io provides events to detect clients connect/disconnect
+//
 
 //detect client connection
 eurecaServer.onConnect(function (conn) {
@@ -68,7 +69,7 @@ eurecaServer.exports.handshake = function()
 			var y = clients[cc].laststate ? clients[cc].laststate.y : 0;
       var nick = clients[cc].laststate ? clients[cc].laststate.nick : "Player";
 
-			remote.spawnPlayer(clients[cc].id, x, y, nick);
+			remote.spawnPlayer(clients[cc].game.id, x, y, nick);
 		}
 	}
 }
@@ -90,8 +91,9 @@ eurecaServer.exports.handleState = function (state) {
 }
 
 
+//
 // Chatroom (thank you SOCKET.IO)
-
+//
 var numUsers = 0;
 
 io.on('connection', function (socket) {

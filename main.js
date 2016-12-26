@@ -50,7 +50,6 @@ $(function() {
       // and begin game
       socket.emit('add user', username, player.avatar.id);
       player.setNick(username);
-      ready = true;
     }
   }
 

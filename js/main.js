@@ -1,13 +1,102 @@
-var debug = true;
+var main = function(game) {
+  this.game = game;
+}
+
+main.prototype = {
+  create: function() {
+    this.game.physics.startSystem(Phaser.Physics.ARCADE);
+
+    setMapRoom(1, this.game);
+
+    player = new Player(myId, this.game, avatar, "Player", 1);
+    players[myId] = player;
+    avatar = player.avatar;
+    player.avatar.x=512;
+    player.avatar.y=206;
+
+    keys = this.game.input.keyboard.createCursorKeys();
+
+    ready = true;
+  },
+
+
+  update: function() {
+    if (!ready) return;
+
+    // run collisions (note: player.avatar, not player)
+    this.game.physics.arcade.collide(player.avatar, layer0);
+
+    // update player movements (server processes them later)
+    player.state.input.left = keys.left.isDown;
+    player.state.input.right = keys.right.isDown;
+    player.state.input.up = keys.up.isDown;
+    player.state.input.down = keys.down.isDown;
+
+    for (var i in players) {
+      players[i].update();
+    }
+  },
+
+
+  render: function() {
+    //   if (!ready) return;
+    //   debug.body(player);
+  },
+}
+
 var eurecaServer;
 var avatar;
 var player;
-var moveSpeed = 200;
 var keys;
 var maps = {};
 var layer0;
 var ready = false;
 var players = {};
+var myId;
+var game = game;
+var debug = true;
+var moveSpeed = 200;
+
+var eurecaClientSetup = function() {
+  var eurecaClient = new Eureca.Client();
+
+  eurecaClient.ready(function (proxy) {
+    eurecaServer = proxy;
+  });
+
+  // "exports" methods are server-side
+  eurecaClient.exports.setId = function(id){
+    myId = id;
+    eurecaServer.handshake();
+  }
+
+  eurecaClient.exports.kill = function(id){
+    if (players[id]){
+      players[id].kill();
+      console.log(`killing ${id}`);
+    }
+  }
+
+  eurecaClient.exports.spawnPlayer = function(h, e, x){
+    if (h == myId) return; // only spawn other players
+
+    console.log(`PLAYER SPAWN: ${h}`);
+    var plr = new Player(h, this, avatar, "Player");
+    players[h] = plr;
+  }
+
+  eurecaClient.exports.updateState = function(id, state){
+    if (!players[id]) return;
+
+    players[id].cursor = state.input;
+    players[id].avatar.x = state.x;
+    players[id].avatar.y = state.y;
+    if (players[id].nick != state.nick) players[id].setNick(state.nick);
+
+    players[id].update();
+  }
+}
+
 
 Room = function(id, x, y, doors){
   this.id = id;
@@ -62,53 +151,6 @@ var defaultFont = {
   align: 'center'
 }
 
-var chatFont = {
-  font: '12px Arial',
-  fill: '#fff',
-  align: 'left'
-}
-
-
-var eurecaClientSetup = function() {
-  var eurecaClient = new Eureca.Client();
-
-  eurecaClient.ready(function (proxy) {
-    eurecaServer = proxy;
-  });
-
-  // "exports" methods are server-side
-  eurecaClient.exports.setId = function(id){
-    myId = id;
-    create();
-    eurecaServer.handshake();
-  }
-
-  eurecaClient.exports.kill = function(id){
-    if (players[id]){
-      players[id].kill();
-      console.log(`killing ${id}`);
-    }
-  }
-
-  eurecaClient.exports.spawnPlayer = function(h, e, x){
-    if (h == myId) return; // only spawn other players
-
-    console.log(`PLAYER SPAWN: ${h}`);
-    var plr = new Player(h, game, avatar, "Player");
-    players[h] = plr;
-  }
-
-  eurecaClient.exports.updateState = function(id, state){
-    if (!players[id]) return;
-
-    players[id].cursor = state.input;
-    players[id].avatar.x = state.x;
-    players[id].avatar.y = state.y;
-    if (players[id].nick != state.nick) players[id].setNick(state.nick);
-
-    players[id].update();
-  }
-}
 
 //
 // Player class, methods
@@ -166,7 +208,7 @@ Player = function(index, game, avatar, nick, room){
   this.room = room || 1;
   this.enterRoom = function(id, x, y){
     if (rooms[id] && rooms[this.room].neighbors.indexOf(id) != -1){
-      setMapRoom(id);
+      setMapRoom(id, game);
       this.avatar.bringToTop();
       this.label.bringToTop();
       this.room = id;
@@ -182,6 +224,18 @@ Player = function(index, game, avatar, nick, room){
   // end Player
 };
 
+function setMapRoom(id, game){
+    maps[id] = game.add.tilemap(`map${id}`, 32, 32);
+    maps[id].addTilesetImage(`Room${id}`, 'tileset');
+    maps[id].setCollisionBetween(3,9);
+    maps[id].setCollisionBetween(11,15);
+    maps[id].setTileIndexCallback(10, enterDoor, this); // makes door tiles work
+
+    if (layer0) layer0.destroy();
+    layer0 = maps[id].createLayer(0);
+    layer0.resizeWorld();
+    if (debug) layer0.debug = true;
+}
 
 
 Player.prototype.update = function(){
@@ -231,68 +285,6 @@ Player.prototype.kill = function() {
 
 
 //
-// Setup the main game
-// note: create() subbed with eurecaClientSetup(), where we call create()
+// begin server
 //
-var game = new Phaser.Game(1024, 512, Phaser.AUTO, '', { preload: preload, create: eurecaClientSetup, update: update, render: render });
-
-function preload() {
-  game.load.spritesheet('avatar', 'assets/player.png', 32, 32);
-  game.load.tilemap('map1', 'assets/map.json', null, Phaser.Tilemap.TILED_JSON);
-  game.load.tilemap('map2', 'assets/2.json', null, Phaser.Tilemap.TILED_JSON);
-  game.load.tilemap('map3', 'assets/3.json', null, Phaser.Tilemap.TILED_JSON);
-  game.load.image('tileset','assets/tileset.png');
-}
-
-
-function create() {
-  game.physics.startSystem(Phaser.Physics.ARCADE);
-
-  setMapRoom(1);
-
-  player = new Player(myId, game, avatar, "Player", 1);
-  players[myId] = player;
-  avatar = player.avatar;
-  player.avatar.x=512;
-  player.avatar.y=206;
-
-  keys = game.input.keyboard.createCursorKeys();
-}
-
-function setMapRoom(id){
-  maps[id] = game.add.tilemap(`map${id}`, 32, 32);
-  maps[id].addTilesetImage(`Room${id}`, 'tileset');
-  maps[id].setCollisionBetween(3,9);
-  maps[id].setCollisionBetween(11,15);
-  maps[id].setTileIndexCallback(10, enterDoor, this); // makes door tiles work
-
-  if (layer0) layer0.destroy();
-  layer0 = maps[id].createLayer(0);
-  layer0.resizeWorld();
-  if (debug) layer0.debug = true;
-}
-
-
-function update() {
-  if (!ready) return;
-
-  // run collisions (note: player.avatar, not player)
-  game.physics.arcade.collide(player.avatar, layer0);
-
-  // update player movements (server processes them later)
-  player.state.input.left = keys.left.isDown;
-  player.state.input.right = keys.right.isDown;
-  player.state.input.up = keys.up.isDown;
-  player.state.input.down = keys.down.isDown;
-
-  for (var i in players) {
-    players[i].update();
-  }
-};
-
-
-
-function render() {
-//   if (!ready) return;
-//   game.debug.body(player);
-}
+eurecaClientSetup();
