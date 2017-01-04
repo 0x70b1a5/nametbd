@@ -53,7 +53,6 @@ var layer0;
 var ready = false;
 var players = {};
 var myId;
-var game = game;
 var debug = true;
 var moveSpeed = 200;
 
@@ -77,12 +76,12 @@ var eurecaClientSetup = function() {
     }
   }
 
-  eurecaClient.exports.spawnPlayer = function(h, e, x){
-    if (h == myId) return; // only spawn other players
+  eurecaClient.exports.spawnPlayer = function(id, x, y, nick, room){
+    if (id == myId) return; // only spawn other players
 
-    console.log(`PLAYER SPAWN: ${h}`);
-    var plr = new Player(h, this, avatar, "Player");
-    players[h] = plr;
+    console.log(`PLAYER SPAWN: ${id}`);
+    var plr = new Player(id, player.game, avatar, nick, room, x, y);
+    players[id] = plr;
   }
 
   eurecaClient.exports.updateState = function(id, state){
@@ -113,6 +112,7 @@ Room = function(id, x, y, doors){
   }
 
   this.findNeighbor = function(x, y){
+    // returns id of the room whose door is located at this room's tile (x,y)
     for (var i in this.doors){
       if (this.doors[i].x == x && this.doors[i].y == y) return i;
     }
@@ -120,6 +120,7 @@ Room = function(id, x, y, doors){
   }
 }
 
+// full world map
 var room1 = new Room(1, 32, 16, {
       2: {x: 18, y: 5},
       3: {x: 8,  y: 7}
@@ -131,13 +132,16 @@ var room1 = new Room(1, 32, 16, {
       1: {x: 10,  y: 10}
     });
 
+// hash of room ids to room objects
 var rooms = {
   1: room1,
   2: room2,
   3: room3
 }
 
-function enterDoor(sprite, tile){ // TODO redo as player class method
+function enterDoor(sprite, tile){ // redo as player class method?
+  // this runs whenever the player collides with a door tile
+  // NOT to be confused with Player.enterRoom()
   var currentRoom = rooms[player.room];
   if (currentRoom.hasDoor(tile.x, tile.y)) {
     var nextRoom = currentRoom.findNeighbor(tile.x, tile.y);
@@ -155,7 +159,7 @@ var defaultFont = {
 //
 // Player class, methods
 //
-Player = function(index, game, avatar, nick, room){
+Player = function(index, game, avatar, nick, room, x, y){
   this.cursor = {
     left: false,
     right: false,
@@ -170,17 +174,17 @@ Player = function(index, game, avatar, nick, room){
       up: false,
       down: false
     },
-    nick: nick,
-    room: (room || 1)
+    nick: nick || "Player",
+    room: room || 1
   }
 
-  var x = 0;
-  var y = 0;
+  var x = x || 0;
+  var y = y || 0;
 
   this.game = game;
 
   // avatar
-  this.avatar = game.add.sprite(32, 32, 'avatar', 0);
+  this.avatar = this.game.add.sprite(32, 32, 'avatar', 0);
   this.avatar.animations.add('walk', [0, 1, 0, 2], 10, true);
   game.physics.enable(this.avatar, Phaser.Physics.ARCADE);
   this.avatar.body.setSize(16, 32, 8, 0);
@@ -192,7 +196,7 @@ Player = function(index, game, avatar, nick, room){
 
   // username
   this.nick = nick;
-  this.label = game.add.text(0, 0, this.state.nick, defaultFont);
+  this.label = this.game.add.text(0, 0, this.state.nick, defaultFont);
   this.label.anchor.set(0.5);
   this.label.alignTo = function(sprite, pct_x, pct_y, pad_x, pad_y){
     this.x = Math.floor(sprite.x + (pct_x*sprite.width) + pad_x);
@@ -207,6 +211,7 @@ Player = function(index, game, avatar, nick, room){
   // navigation
   this.room = room || 1;
   this.enterRoom = function(id, x, y){
+    // NOT to be confused with top level function enterDoor
     if (rooms[id] && rooms[this.room].neighbors.indexOf(id) != -1){
       setMapRoom(id, game);
       this.avatar.bringToTop();
@@ -216,10 +221,10 @@ Player = function(index, game, avatar, nick, room){
   }
 
   // chat
-//   this.timeSinceLastChat = Infinity;
-//   this.successiveChats = 0;
-//   this.banned = false;
-//   this.messages = {};
+  //   this.timeSinceLastChat = Infinity;
+  //   this.successiveChats = 0;
+  //   this.banned = false;
+  //   this.messages = {};
 
   // end Player
 };

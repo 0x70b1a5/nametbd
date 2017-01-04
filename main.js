@@ -203,7 +203,7 @@ $(function() {
         sendMessage();
         socket.emit('stop typing');
         typing = false;
-      } else {
+      } else if (player) {
         setUsername();
       }
     }
