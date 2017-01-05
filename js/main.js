@@ -5,6 +5,7 @@ var main = function(game) {
 main.prototype = {
   create: function() {
     this.game.physics.startSystem(Phaser.Physics.ARCADE);
+    this.game.world.setBounds(1024, 512);
 
     setMapRoom(1, this.game);
 
@@ -13,6 +14,8 @@ main.prototype = {
     avatar = player.avatar;
     player.avatar.x=512;
     player.avatar.y=206;
+
+    this.game.camera.follow(player.avatar);
 
     keys = this.game.input.keyboard.createCursorKeys();
 
